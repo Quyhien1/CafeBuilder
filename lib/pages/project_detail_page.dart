@@ -39,8 +39,10 @@ class ProjectDetailPage extends StatefulWidget {
   State<ProjectDetailPage> createState() => _ProjectDetailPageState();
 }
 
-class _ProjectDetailPageState extends State<ProjectDetailPage> {
+class _ProjectDetailPageState extends State<ProjectDetailPage>
+    with SingleTickerProviderStateMixin {
   ProjectResponse? _project;
+  late final AnimationController _animController;
 
   /// Applications received per open post, so the owner can see which role is
   /// attracting interest without opening the proposals list. Keyed by post id;
@@ -152,7 +154,17 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     _loadProject();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   void _showNotifications() async {
@@ -263,6 +275,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           _brief = brief;
           _loading = false;
         });
+        _animController.forward(from: 0.0);
       }
     } on ApiException catch (e) {
       if (mounted) {
@@ -305,6 +318,27 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
         .where((w) => w.isNotEmpty)
         .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
         .join(' ');
+  }
+
+  Widget _buildAnimatedSection({required Widget child, required int index}) {
+    final double start = (index * 0.08).clamp(0.0, 0.7);
+    final double end = (start + 0.4).clamp(0.2, 1.0);
+
+    final CurvedAnimation curved = CurvedAnimation(
+      parent: _animController,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    );
   }
 
   @override
@@ -387,76 +421,114 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 16),
-                        Text(
-                          project!.name,
-                          style: GoogleFonts.playfairDisplay(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.espresso,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          project.address,
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${project.areaM2.toStringAsFixed(0)} m² · ${_statusLabel(project.status)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.placeholder,
+                        _buildAnimatedSection(
+                          index: 0,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                project!.name,
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.espresso,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                project.address,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${project.areaM2.toStringAsFixed(0)} m² · ${_statusLabel(project.status)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.placeholder,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Renders nothing when the project has no pin, so no
-                        // guard is needed here — a project saved before the
-                        // map picker existed simply keeps the address line above.
-                        LocationMapPreview(
-                          address: project.address,
-                          latitude: project.latitude,
-                          longitude: project.longitude,
-                          showAddress: false,
+                        _buildAnimatedSection(
+                          index: 1,
+                          child: LocationMapPreview(
+                            address: project.address,
+                            latitude: project.latitude,
+                            longitude: project.longitude,
+                            showAddress: false,
+                          ),
                         ),
                         const SizedBox(height: 24),
-                        _buildProgressCard(project),
+                        _buildAnimatedSection(
+                          index: 2,
+                          child: _buildProgressCard(project),
+                        ),
                         const SizedBox(height: 20),
-                        _buildBudgetOverview(project),
+                        _buildAnimatedSection(
+                          index: 3,
+                          child: _buildBudgetOverview(project),
+                        ),
                         const SizedBox(height: 24),
                         if (_brief != null) ...[
-                          _buildDesignBrief(_brief!),
+                          _buildAnimatedSection(
+                            index: 4,
+                            child: _buildDesignBrief(_brief!),
+                          ),
                           const SizedBox(height: 24),
                         ],
                         if (project.providers.isNotEmpty) ...[
-                          _buildNextMilestone(),
-                          const SizedBox(height: 20),
-                          _buildRecentActivity(),
-                          const SizedBox(height: 20),
-                          _buildPendingApprovals(),
-                          const SizedBox(height: 20),
-                          _buildProjectTeam(),
+                          _buildAnimatedSection(
+                            index: 5,
+                            child: Column(
+                              children: [
+                                _buildNextMilestone(),
+                                const SizedBox(height: 20),
+                                _buildRecentActivity(),
+                                const SizedBox(height: 20),
+                                _buildPendingApprovals(),
+                                const SizedBox(height: 20),
+                                _buildProjectTeam(),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 24),
                         ] else if (project.openPosts.isNotEmpty) ...[
-                          _buildRecruitingStatus(project.openPosts),
+                          _buildAnimatedSection(
+                            index: 5,
+                            child: _buildRecruitingStatus(project.openPosts),
+                          ),
                           const SizedBox(height: 24),
                         ] else ...[
-                          _buildEmptyProvidersState(),
+                          _buildAnimatedSection(
+                            index: 5,
+                            child: _buildEmptyProvidersState(),
+                          ),
                           const SizedBox(height: 24),
                         ],
-                        Text(
-                          'Quick Actions',
-                          style: GoogleFonts.playfairDisplay(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.espresso,
+                        _buildAnimatedSection(
+                          index: 6,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quick Actions',
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.espresso,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildQuickActions(context),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildQuickActions(context),
                         const SizedBox(height: 24),
                         _buildProjectActions(project),
                         const SizedBox(height: 80),
@@ -541,94 +613,272 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   }
 
   Widget _buildBudgetOverview(ProjectResponse project) {
+    final costPerM2 = project.areaM2 > 0 ? (project.budget / project.areaM2) : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: AppColors.espresso.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
+        border: Border.all(
+          color: AppColors.espresso.withValues(alpha: 0.06),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'BUDGET OVERVIEW',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
-              color: AppColors.placeholder,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: SizedBox(
-              height: 120,
-              width: 120,
-              child: Stack(
-                children: [
-                  Center(
-                    child: SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: CircularProgressIndicator(
-                        value: 1.0,
-                        strokeWidth: 12,
-                        backgroundColor: AppColors.outlineVariant.withValues(alpha: 0.5),
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.espresso),
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          formatVndCompact(project.budget),
-                          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.espresso),
-                        ),
-                        Text('Budget', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text('Total Budget', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.espresso.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      size: 14,
+                      color: AppColors.espresso,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Text(
-                    formatVnd(project.budget),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.espresso),
+                    'BUDGET OVERVIEW',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                      color: AppColors.espresso,
+                    ),
                   ),
                 ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF5E0),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD4E5B3)),
+                ),
+                child: Text(
+                  'Active Plan',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF485623),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('Area', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${project.areaM2.toStringAsFixed(0)} m²',
-                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF56642B)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOutCubic,
+              builder: (context, animValue, child) {
+                return SizedBox(
+                  height: 140,
+                  width: 140,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 136,
+                        height: 136,
+                        child: CircularProgressIndicator(
+                          value: animValue,
+                          strokeWidth: 12,
+                          strokeCap: StrokeCap.round,
+                          backgroundColor: AppColors.outlineVariant.withValues(alpha: 0.25),
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.espresso),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 108,
+                        height: 108,
+                        child: CircularProgressIndicator(
+                          value: animValue * 0.85,
+                          strokeWidth: 3,
+                          strokeCap: StrokeCap.round,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            const Color(0xFF8C6D46).withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            formatVndCompact(project.budget),
+                            style: GoogleFonts.playfairDisplay(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.espresso,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Total Budget',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 28),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBF8F6),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.4)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildBudgetStatTile(
+                        icon: Icons.payments_outlined,
+                        iconBg: AppColors.espresso.withValues(alpha: 0.1),
+                        iconColor: AppColors.espresso,
+                        label: 'Total Budget',
+                        value: formatVnd(project.budget),
+                      ),
+                    ),
+                    Container(
+                      height: 36,
+                      width: 1,
+                      color: AppColors.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    Expanded(
+                      child: _buildBudgetStatTile(
+                        icon: Icons.aspect_ratio_rounded,
+                        iconBg: const Color(0xFFEFF5E0),
+                        iconColor: const Color(0xFF56642B),
+                        label: 'Project Area',
+                        value: '${project.areaM2.toStringAsFixed(0)} m²',
+                      ),
+                    ),
+                  ],
+                ),
+                if (costPerM2 > 0) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(height: 1, thickness: 0.8),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.analytics_outlined,
+                            size: 15,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Est. Unit Cost',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '~${formatVndCompact(costPerM2)} / m²',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.espresso,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetStatTile({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconBg,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 16, color: iconColor),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.espresso,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
